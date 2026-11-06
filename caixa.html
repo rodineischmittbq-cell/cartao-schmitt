@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartão Schmitt · Caixa</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="icone-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Figtree:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="estilo.css">
+<script src="config.js"></script>
+<style>
+  body{font-size:17px}
+  .top{background:var(--brand-dk);color:#fff;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;padding:10px max(16px,env(safe-area-inset-left))}
+  .top .who{display:flex;align-items:center;gap:12px;font-weight:700}
+  .top img{height:40px;background:#fff;border-radius:8px;padding:2px}
+  .top .dot{width:10px;height:10px;border-radius:50%;background:#4ade80;display:inline-block}
+  .top .dot.off{background:#f87171}
+  .layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;padding:16px max(16px,env(safe-area-inset-left));max-width:1200px;margin:0 auto}
+  @media (max-width:820px){.layout{grid-template-columns:1fr}}
+  .now{min-height:300px;align-content:center}
+  .now .nome{font-size:2rem;font-weight:800}
+  .now .sub{font-size:1.1rem}
+  .act{border-radius:14px;padding:14px;display:grid;gap:10px;text-align:left}
+  .act.gold{background:var(--gold-soft);border:2px solid var(--gold)}
+  .act.info{background:#e7f3f9;border:1px solid var(--brand)}
+  .act h3{font-size:1.25rem}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .list{display:grid;gap:6px;max-height:60vh;overflow:auto}
+  .item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:.92rem;cursor:pointer;border:0;text-align:left;color:inherit}
+  .item:hover{background:#e3ecf1}
+  .item .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .pill{font-size:.75rem;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.gold{background:var(--gold-soft);color:#6b4500}
+  .login{max-width:360px;margin:40px auto;padding:0 16px;display:grid;gap:14px}
+  .pin{font-size:1.8rem;letter-spacing:.4em;text-align:center}
+  .tabs{display:flex;gap:6px}
+  .tabs button{flex:1}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function () {
+  const app = document.getElementById("app");
+  const cx = (new URLSearchParams(location.search).get("cx") || "CX1").toUpperCase();
+  const KEY = "cs_sessao_" + cx;
+  let sessao = csStore.get(KEY), desde = Number(csStore.get(KEY + "_desde") || 0);
+  let atual = null, lista = [], timer = null, online = true, audio = null;
+  const nomeCaixa = cx === "CX2" ? "Caixa 2" : "Caixa 1";
+
+  function beep() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      [0, 0.18].forEach((t) => {
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(audio.destination);
+        o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.12);
+      });
+    } catch (_) {}
+  }
+
+  // ---------- Login ----------
+  function telaLogin(msg) {
+    clearInterval(timer);
+    app.innerHTML = `<div class="login">
+      <img class="logo" src="logo.png" alt="Schmitt Buffet e Eventos">
+      <form class="card" id="f" novalidate>
+        <h1 style="font-size:1.4rem;text-align:center">${nomeCaixa}</h1>
+        <label class="f" for="pin">PIN do atendente<input class="pin" type="password" id="pin" inputmode="numeric" autocomplete="off" maxlength="6"></label>
+        <p class="err" id="e" ${msg ? "" : "hidden"}>${csEsc(msg || "")}</p>
+        <button class="btn primary full" id="ok">Entrar</button>
+      </form>
+      <p class="small muted" style="text-align:center">Trocar de caixa: <a href="?cx=CX1">Caixa 1</a> · <a href="?cx=CX2">Caixa 2</a></p>
+    </div>`;
+    const pin = document.getElementById("pin"); pin.focus();
+    document.getElementById("f").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const ok = document.getElementById("ok"); ok.disabled = true;
+      const r = await csApi("/caixa/login", { caixa: cx, pin: pin.value });
+      ok.disabled = false;
+      if (r.erro) {
+        const e = document.getElementById("e"); e.hidden = false;
+        e.textContent = r.erro === "pin_incorreto" ? "PIN incorreto." : csMsgErro(r.erro); pin.value = ""; pin.focus(); return;
+      }
+      sessao = r.sessao; desde = r.ultimo_toque || 0;
+      csStore.set(KEY, sessao); csStore.set(KEY + "_desde", desde);
+      beep(); telaCaixa(r.atendente);
+    });
+  }
+
+  // ---------- Tela principal ----------
+  function telaCaixa(atendente) {
+    app.innerHTML = `
+    <header class="top">
+      <div class="who"><img src="logo.png" alt=""><span>${nomeCaixa} · Cartão Schmitt</span></div>
+      <div class="row"><span><span class="dot" id="dot"></span> <span id="atd">${csEsc(atendente || "")}</span></span><button class="btn" id="sair">Sair</button></div>
+    </header>
+    <div class="layout">
+      <div style="display:grid;gap:16px;align-content:start">
+        <section class="card now" id="now" aria-live="polite"></section>
+        <form class="card" id="busca" novalidate>
+          <h2 style="font-size:1.05rem">Celular do cliente não funcionou?</h2>
+          <div class="row">
+            <input type="text" id="q" placeholder="Nº do cartão (SB-1234), telefone ou nome" style="flex:1;min-width:220px" autocomplete="off">
+            <button class="btn dark" id="buscar">Buscar</button>
+          </div>
+          <p class="small muted">Leitor de QR no computador? Clique no campo e aponte para o QR do cartão do cliente.</p>
+          <div class="list" id="res"></div>
+        </form>
+      </div>
+      <section class="card">
+        <h2 style="font-size:1.05rem">Últimas aproximações</h2>
+        <div class="list" id="lista"><p class="muted small">Aguardando clientes…</p></div>
+      </section>
+    </div>`;
+    document.getElementById("sair").onclick = async () => { await csApi("/caixa/sair", { sessao }); csStore.del(KEY); sessao = null; telaLogin(); };
+    document.getElementById("busca").addEventListener("submit", buscar);
+    renderAtual(); renderLista();
+    clearInterval(timer); timer = setInterval(poll, 2000); poll();
+  }
+
+  async function poll() {
+    const r = await csApi("/caixa/feed", { sessao, desde });
+    const dot = document.getElementById("dot");
+    if (r.erro === "sessao_expirada") { csStore.del(KEY); return telaLogin("Sessão encerrada. Digite o PIN de novo."); }
+    if (r.erro) { online = false; if (dot) dot.className = "dot off"; return; }
+    online = true; if (dot) dot.className = "dot";
+    if (r.atendente) document.getElementById("atd").textContent = r.atendente;
+    if (r.toques && r.toques.length) {
+      r.toques.forEach((t) => { lista.unshift(t); desde = Math.max(desde, t.id); });
+      lista = lista.slice(0, 40); csStore.set(KEY + "_desde", desde);
+      atual = { toque: r.toques[r.toques.length - 1], resultado: null };
+      if (precisaAcao(atual.toque.cliente)) beep();
+      renderAtual(); renderLista();
+    }
+  }
+
+  const usouBeneficio = (c) => c && c.hoje && c.hoje.tipo !== "carimbo";
+  const precisaAcao = (c) => c && !usouBeneficio(c) && ((c.premio && c.premio.pode_usar_hoje) || (c.aniversario && c.aniversario.disponivel));
+
+  const ROTULO = {
+    carimbado: ["ok", "Carimbo registrado"], cartela_completa: ["gold", "Cartela completa"],
+    ja_registrado_hoje: ["bad", "Já registrado hoje"], fora_do_horario: ["bad", "Fora do horário"],
+    cliente_nao_encontrado: ["bad", "Cartão não encontrado"],
+  };
+
+  function renderAtual() {
+    const el = document.getElementById("now"); if (!el) return;
+    if (!atual) { el.innerHTML = `<p class="muted" style="text-align:center;font-size:1.2rem">Aguardando o cliente encostar o celular no totem…</p>`; return; }
+    const t = atual.toque, c = t.cliente || {}, [cls, rot] = ROTULO[t.status] || ["bad", t.status];
+    let h = `<div class="row" style="justify-content:space-between"><span class="pill ${cls}">${rot}</span><span class="muted small">${csEsc(t.hora)} · ${csEsc(t.via)}</span></div>
+      <p class="nome">${csEsc(c.nome || "")}</p>
+      <p class="sub">${csEsc(c.codigo || "")} · <b>${c.carimbos ?? "-"}/${c.meta ?? 12}</b> carimbos${c.hoje && c.hoje.tipo === "carimbo" && c.hoje.qtd === 2 ? " · <b>dobro</b>" : ""}</p>`;
+    if (atual.resultado) h += atual.resultado;
+    else if (usouBeneficio(c)) h += `<div class="act info"><h3>${c.hoje.tipo === "premio" ? "Prêmio já entregue hoje" : "Almoço de aniversário já liberado hoje"}</h3></div>`;
+    else {
+      if (c.premio && c.premio.pode_usar_hoje) h += `<div class="act gold"><h3>ALMOÇO GRÁTIS disponível</h3>
+        <p>Até <b>${csMoeda(c.premio.valor)}</b> · vence ${csData(c.premio.vence_em)} · bebida à parte. Se o cliente quiser usar hoje:</p>
+        <div class="row"><button class="btn gold" id="entregar">Entregar prêmio</button><span class="small muted">Se preferir guardar, não clique.</span></div></div>`;
+      else if (c.premio) h += `<div class="act info"><p><b>Prêmio guardado:</b> só vale de segunda a quinta (vence ${csData(c.premio.vence_em)}).</p></div>`;
+      if (c.aniversario && c.aniversario.disponivel) h += `<div class="act gold"><h3>Aniversariante da semana (${csData(c.aniversario.aniversario)})</h3>
+        <p>Com ${c.aniversario.acompanhantes}+ acompanhantes pagantes, o almoço é grátis (até <b>${csMoeda(c.aniversario.valor)}</b>). Confira documento com foto.</p>
+        <div class="row"><label class="f" for="acomp" style="display:flex;align-items:center;gap:8px">Acompanhantes pagantes <input type="number" id="acomp" min="0" max="40" value="${c.aniversario.acompanhantes}" style="width:90px"></label>
+        <button class="btn gold" id="niver">Liberar almoço de aniversário</button></div></div>`;
+    }
+    el.innerHTML = h;
+    const be = document.getElementById("entregar"); if (be) be.onclick = () => acao("/caixa/entregar", { cliente_id: c.id }, be);
+    const bn = document.getElementById("niver"); if (bn) bn.onclick = () => acao("/caixa/aniversario", { cliente_id: c.id, acompanhantes: Number(document.getElementById("acomp").value) }, bn);
+  }
+
+  const RESP = {
+    premio_entregue: (r) => `<div class="act info" style="border:2px solid var(--ok);background:var(--ok-soft)"><h3>Prêmio entregue</h3><p>Não cobre o almoço deste cliente (até <b>${csMoeda(r.valor)}</b>). Bebida e o que passar do valor são cobrados normalmente.</p></div>`,
+    aniversario_liberado: (r) => `<div class="act info" style="border:2px solid var(--ok);background:var(--ok-soft)"><h3>Almoço de aniversário liberado</h3><p>Não cobre o almoço do aniversariante (até <b>${csMoeda(r.valor)}</b>). Bebida à parte.</p></div>`,
+    acompanhantes_insuficientes: (r) => `<div class="act info"><p>Precisa de pelo menos ${r.minimo} acompanhantes pagantes.</p></div>`,
+    dia_nao_permitido: () => `<div class="act info"><p>O prêmio só vale de segunda a quinta.</p></div>`,
+    sem_premio: () => `<div class="act info"><p>Este cliente não tem prêmio disponível hoje.</p></div>`,
+    ja_usou_beneficio_hoje: () => `<div class="act info"><p>Este cliente já usou um benefício hoje.</p></div>`,
+    aniversario_ja_usado: () => `<div class="act info"><p>O almoço de aniversário deste ano já foi usado.</p></div>`,
+    fora_da_semana_do_aniversario: () => `<div class="act info"><p>Fora do período do aniversário.</p></div>`,
+  };
+
+  async function acao(rota, corpo, botao) {
+    botao.disabled = true;
+    const r = await csApi(rota, Object.assign({ sessao }, corpo));
+    if (r.erro === "sessao_expirada") { csStore.del(KEY); return telaLogin("Sessão encerrada. Digite o PIN de novo."); }
+    if (r.cliente) atual.toque.cliente = r.cliente;
+    atual.resultado = (RESP[r.status] || (() => `<div class="act info"><p>${csEsc(csMsgErro(r.erro || r.status))}</p></div>`))(r);
+    renderAtual();
+  }
+
+  function renderLista() {
+    const el = document.getElementById("lista"); if (!el) return;
+    if (!lista.length) { el.innerHTML = `<p class="muted small">Aguardando clientes…</p>`; return; }
+    el.innerHTML = lista.map((t, i) => {
+      const c = t.cliente || {}, [cls, rot] = ROTULO[t.status] || ["bad", t.status];
+      const flag = precisaAcao(c) ? ` <span class="pill gold">${c.premio && c.premio.pode_usar_hoje ? "prêmio" : "aniversário"}</span>` : "";
+      return `<button class="item" data-i="${i}" type="button"><span class="muted">${csEsc(t.hora)}</span><span class="n">${csEsc(c.nome || "")}${flag}</span><span class="pill ${cls}">${rot}</span></button>`;
+    }).join("");
+    el.querySelectorAll(".item").forEach((b) => b.onclick = () => { atual = { toque: lista[Number(b.dataset.i)], resultado: null }; renderAtual(); });
+  }
+
+  // ---------- Busca manual / QR ----------
+  async function buscar(ev) {
+    ev.preventDefault();
+    const q = document.getElementById("q").value.trim(), res = document.getElementById("res");
+    if (!q) return;
+    if (/^sb-?\d{3,6}$/i.test(q)) { // número do cartão ou QR lido
+      const r = await csApi("/caixa/qr", { sessao, codigo: q.toUpperCase().replace(/^SB-?/, "SB-") });
+      document.getElementById("q").value = "";
+      if (r.erro) { res.innerHTML = `<p class="err">${r.erro === "cartao_nao_encontrado" ? "Cartão não encontrado." : csEsc(csMsgErro(r.erro))}</p>`; return; }
+      res.innerHTML = ""; return; // o resultado chega pela lista em instantes
+    }
+    const r = await csApi("/caixa/buscar", { sessao, q });
+    if (r.erro) { res.innerHTML = `<p class="err">${csEsc(csMsgErro(r.erro))}</p>`; return; }
+    if (!r.clientes.length) { res.innerHTML = `<p class="muted small">Ninguém encontrado. Digite pelo menos 3 letras do nome, o telefone com DDD ou o número do cartão.</p>`; return; }
+    res.innerHTML = r.clientes.map((c) => `<div class="item" style="cursor:default"><span class="muted">${csEsc(c.codigo)}</span><span class="n">${csEsc(c.nome)} <span class="muted small">· final ${csEsc(c.whatsapp_final)} · ${c.carimbos} carimbos</span></span><button class="btn sm dark" type="button" data-id="${c.id}">Registrar visita</button></div>`).join("")
+      + `<p class="small muted">Confira o nome e o final do telefone com o cliente antes de registrar.</p>`;
+    res.querySelectorAll("button[data-id]").forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      const x = await csApi("/caixa/carimbar", { sessao, cliente_id: b.dataset.id });
+      if (x.erro) { b.disabled = false; res.insertAdjacentHTML("beforeend", `<p class="err">${csEsc(csMsgErro(x.erro))}</p>`); return; }
+      res.innerHTML = ""; document.getElementById("q").value = "";
+    });
+  }
+
+  if (sessao) telaCaixa(""); else telaLogin();
+})();
+</script>
+</body>
+</html>

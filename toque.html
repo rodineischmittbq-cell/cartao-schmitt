@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cartão Schmitt</title>
+<meta name="theme-color" content="#083b55">
+<link rel="icon" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Figtree:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="estilo.css">
+<script src="config.js"></script>
+</head>
+<body class="listras">
+<main class="festa" id="app">
+  <div class="centro"><img class="logo-p" src="logo.png" alt="Schmitt Buffet e Eventos"><div class="spinner"></div><p>Registrando o seu carimbo…</p></div>
+</main>
+<script>
+(async function () {
+  const app = document.getElementById("app");
+  const tag = new URLSearchParams(location.search).get("c") || "";
+  const ESTRELA = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.8l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.6l-5.4 2.9 1.1-6.1L3.2 9.2l6.1-.8z"/></svg>';
+  const fundo = (cls) => { document.body.className = cls; document.querySelector('meta[name="theme-color"]').content = cls === "ouro-fundo" ? "#b8721a" : cls === "alerta-fundo" ? "#1c2c36" : "#083b55"; };
+  const verCartao = `<a class="btn vidro" href="index.html">Ver meu cartão</a>`;
+
+  function tela({ cls = "listras", icone, titulo, texto, extras = "", mini = "", acoes = verCartao }) {
+    fundo(cls);
+    app.className = "festa anima";
+    app.innerHTML = `
+      <div class="centro">
+        <img class="logo-p" src="logo.png" alt="Schmitt Buffet e Eventos">
+        <div class="carimbo">${icone}</div>
+        <h1>${titulo}</h1>
+        ${texto ? `<p>${texto}</p>` : ""}
+        ${mini}
+        ${extras}
+      </div>
+      <div class="acoes">${acoes}</div>`;
+  }
+  function miniSelos(c, novos) {
+    let h = "";
+    for (let i = 0; i < c.meta; i++) h += `<i class="${i < c.carimbos - novos ? "on" : i < c.carimbos ? "novo" : ""}"></i>`;
+    return `<div class="mini-selos" aria-hidden="true">${h}</div>`;
+  }
+
+  const token = csStore.get("cs_token");
+  if (!token) {
+    tela({ icone: CS_ICONE_PRESENTE, titulo: "Ganhe o seu Cartão Schmitt",
+      texto: "A cada 12 almoços, o próximo é por nossa conta. Cadastre-se e já comece com 2 carimbos.",
+      acoes: `<a class="btn principal" style="background:#fff;color:#083b55;border-color:#fff" href="index.html?c=${encodeURIComponent(tag)}">Criar meu cartão</a>
+              <a class="btn vidro" href="index.html?c=${encodeURIComponent(tag)}#entrar">Já tenho cartão</a>` });
+    return;
+  }
+
+  const r = await csApi("/toque", { tag, token });
+  const c = r.cliente || {};
+  const nome = csEsc(csPrimeiro(c.nome));
+  let extras = "";
+  if (c.premio && c.premio.pode_usar_hoje) extras += `<div class="extra"><b>Você tem um almoço grátis</b>Quer usar hoje? Avise o caixa, que libera na tela.</div>`;
+  else if (c.premio && r.status !== "cartela_completa") extras += `<div class="extra"><b>Almoço grátis guardado</b>Vale de segunda a quinta até ${csData(c.premio.vence_em)}.</div>`;
+  if (c.aniversario && c.aniversario.disponivel) extras += `<div class="extra"><b>Feliz aniversário!</b>Veio com ${c.aniversario.acompanhantes} amigos pagantes? Avise o caixa: o seu almoço é por nossa conta.</div>`;
+
+  switch (r.status) {
+    case "carimbado":
+      tela({ icone: CS_ICONE_PRATO, titulo: r.dobro ? "+2 carimbos" : "+1 carimbo",
+        texto: `${r.dobro ? "Segunda-feira vale em dobro! " : ""}Obrigado pelo almoço, ${nome}. Você tem ${c.carimbos} de ${c.meta}.`,
+        mini: miniSelos(c, r.qtd || 1), extras }); break;
+    case "cartela_completa":
+      tela({ cls: "ouro-fundo", icone: ESTRELA, titulo: "Cartela completa!",
+        texto: `Seu próximo almoço é por nossa conta, ${nome}. Use de segunda a quinta até ${csData(c.premio && c.premio.vence_em)}.`, extras }); break;
+    case "ja_registrado_hoje": {
+      const h = c.hoje || {};
+      tela({ cls: "alerta-fundo", icone: CS_ICONE_PRATO, titulo: "Carimbo de hoje já registrado",
+        texto: `Registrado às ${csEsc(h.hora || "")}. Vale 1 carimbo por dia. Você tem ${c.carimbos} de ${c.meta}.`, extras }); break;
+    }
+    case "fora_do_horario":
+      tela({ cls: "alerta-fundo", icone: "⏱", titulo: "Fora do horário",
+        texto: "O carimbo vale no horário do almoço, das 11h às 15h." }); break;
+    case "tag_invalida":
+      tela({ cls: "alerta-fundo", icone: "?", titulo: "Totem não reconhecido",
+        texto: "Peça ajuda no caixa: ele registra o carimbo pelo QR do seu cartão." }); break;
+    case "sem_cartao":
+      csStore.del("cs_token"); location.replace("index.html?c=" + encodeURIComponent(tag)); break;
+    default:
+      tela({ cls: "alerta-fundo", icone: "!", titulo: "Não deu certo",
+        texto: csEsc(csMsgErro(r.erro)) + " Se precisar, o caixa registra pelo QR do seu cartão.",
+        acoes: `<button class="btn vidro" onclick="location.reload()">Tentar de novo</button>${verCartao}` });
+  }
+})();
+</script>
+</body>
+</html>

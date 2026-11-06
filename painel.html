@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cartão Schmitt · Painel</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#083b55">
+<link rel="icon" href="icone-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Figtree:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="estilo.css">
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  body{background:#eef3f6}
+  .barra-topo{position:sticky;top:0;z-index:10;color:#fff;padding:10px max(16px,env(safe-area-inset-left,0px));display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px}
+  .barra-topo .marca{display:flex;align-items:center;gap:12px}
+  .barra-topo img{height:44px;width:auto}
+  .barra-topo h1{font-family:var(--f-marca);font-weight:400;font-size:1.35rem}
+  .abas{display:flex;flex-wrap:wrap;gap:4px}
+  .abas button{background:transparent;border:0;color:rgba(255,255,255,.8);font:600 .95rem var(--f-texto);padding:8px 12px;border-radius:10px;cursor:pointer}
+  .abas button[aria-selected="true"]{background:rgba(255,255,255,.16);color:#fff}
+  .conteudo{max-width:1180px;margin:0 auto;padding:20px max(16px,env(safe-area-inset-left,0px)) 48px;display:grid;gap:18px}
+  .bloco{background:#fff;border:1px solid var(--linha);border-radius:18px;padding:18px;display:grid;gap:14px;min-width:0}
+  .bloco>*{min-width:0}
+  .grafico,.tabela{min-width:0;max-width:100%}
+  td.num,td:first-child{white-space:nowrap}
+  input[type=date]{max-width:100%}
+  .bloco h2{font-family:var(--f-marca);font-weight:400;font-size:1.35rem}
+  .bloco .sub{color:var(--cinza);font-size:.9rem;margin-top:-8px}
+  .linha{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .linha.entre{justify-content:space-between}
+  .numeros{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  @media (max-width:820px){.numeros{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .numero{background:#fff;border:1px solid var(--linha);border-radius:16px;padding:14px 16px;display:grid;gap:2px}
+  .numero b{font-family:var(--f-marca);font-weight:400;font-size:2rem;line-height:1.1;font-variant-numeric:tabular-nums}
+  .numero span{color:var(--cinza);font-size:.88rem}
+  .numero.destaque{background:linear-gradient(160deg,var(--azul),var(--azul-fundo));color:#fff;border:0}
+  .numero.destaque span{color:rgba(255,255,255,.85)}
+  .duas{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+  @media (max-width:900px){.duas{grid-template-columns:1fr}}
+  .grafico{overflow-x:auto}
+  .grafico svg{display:block;min-width:520px;width:100%;height:auto}
+  .legenda{display:flex;gap:16px;font-size:.85rem;color:var(--cinza)}
+  .legenda i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .tabela{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:.92rem}
+  th{text-align:left;font-size:.8rem;color:var(--cinza);font-weight:700;padding:8px 10px;border-bottom:1px solid var(--linha);white-space:nowrap}
+  td{padding:10px;border-bottom:1px solid #edf2f5;vertical-align:middle}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:0}
+  tfoot td{font-weight:800;border-top:2px solid var(--linha)}
+  .vazio{color:var(--cinza);text-align:center;padding:22px 10px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chips button{border:1.5px solid var(--linha);background:#fff;color:var(--cinza);border-radius:999px;padding:6px 14px;font:600 .88rem var(--f-texto);cursor:pointer}
+  .chips button[aria-pressed="true"]{background:var(--azul-fundo);border-color:var(--azul-fundo);color:#fff}
+  .tag{display:inline-block;font-size:.75rem;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .tag.ouro{background:var(--ouro-claro);color:#6b4500}
+  .tag.verde{background:var(--verde-claro);color:var(--verde)}
+  .tag.cinza{background:#e8eef2;color:var(--cinza)}
+  .tag.vermelho{background:var(--erro-claro);color:var(--erro)}
+  .form-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  select{border:1.5px solid var(--linha);background:#fff;border-radius:12px;padding:12px;font:500 1rem var(--f-texto);color:var(--tinta);width:100%}
+  textarea{border:1.5px solid var(--linha);background:#fff;border-radius:12px;padding:12px;font:500 .98rem var(--f-texto);color:var(--tinta);width:100%;min-height:90px;resize:vertical}
+  input[type=date],input[type=datetime-local]{border:1.5px solid var(--linha);background:#fff;border-radius:12px;padding:11px 12px;font:500 1rem var(--f-texto);color:var(--tinta)}
+  .aviso-item{border:1px solid var(--linha);border-radius:14px;padding:14px;display:grid;gap:10px}
+  .aviso-item header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .aviso-item h3{font-size:1rem}
+  .aviso-item p{color:var(--cinza);font-size:.86rem}
+  .chave{position:relative;width:46px;height:26px;flex:none}
+  .chave input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+  .chave span{position:absolute;inset:0;background:#cdd8df;border-radius:99px;transition:background .2s;pointer-events:none}
+  .chave span::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+  .chave input:checked+span{background:var(--verde)}
+  .chave input:checked+span::after{transform:translateX(20px)}
+  .chave input:focus-visible+span{outline:3px solid rgba(11,127,174,.4);outline-offset:2px}
+  .nota{background:#e7f3f9;border:1px solid #b9dcec;border-radius:14px;padding:12px 14px;font-size:.9rem;color:#0d4561}
+  .totens{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+  .totem{border:1px solid var(--linha);border-radius:16px;padding:16px;display:grid;gap:12px;justify-items:start}
+  .totem .qr{margin:0}
+  .copiar{display:flex;gap:8px;width:100%}
+  .copiar input{flex:1;min-width:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem}
+  .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,140px);background:var(--azul-fundo);color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;transition:transform .3s;z-index:50;max-width:calc(100% - 32px)}
+  .toast.show{transform:translate(-50%,0)}
+  .login-p{max-width:380px;margin:0 auto;padding:40px 16px;display:grid;gap:16px}
+  .confirmar{background:var(--erro-claro);border:1px solid var(--erro);border-radius:12px;padding:12px;display:grid;gap:8px;font-size:.9rem}
+  @media (prefers-reduced-motion:reduce){.toast,.chave span,.chave span::after{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(function () {
+  const app = document.getElementById("app");
+  const KEY = "cs_painel";
+  let sessao = csStore.get(KEY);
+  let aba = "geral", periodo = 30, listaTipo = "recentes", config = null;
+  const SITE = location.origin + location.pathname.replace(/[^/]*$/, "");
+  const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+  const SEG = { todos: "Todos os clientes", quase: "Quase no prêmio", sumidos: "Sumidos", com_premio: "Com prêmio a usar" };
+  const AVISOS = {
+    sumido: ["Quem sumiu", "Vai para quem passa do número de dias sem vir definido nas regras."],
+    quase: ["Falta pouco para o prêmio", "Quando faltam 2 e quando falta 1 carimbo."],
+    premio_vencendo: ["Prêmio vencendo", "7 dias antes de o almoço grátis vencer."],
+    aniversario: ["Aniversário", "5 dias antes do aniversário do cliente."],
+    vespera_dobro: ["Véspera do carimbo em dobro", "Na noite anterior ao dia do carimbo em dobro."],
+  };
+
+  let tt; const toast = (t) => { const e = document.getElementById("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("show"), 2800); };
+  const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  const fone = (w) => { const d = String(w || "").replace(/^55/, ""); return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : d; };
+  const zap = (w) => `<a class="btn sm" href="https://wa.me/${csEsc(w)}" target="_blank" rel="noopener">WhatsApp</a>`;
+  const dataBR = (iso) => { if (!iso) return "—"; const [a, m, d] = String(iso).slice(0, 10).split("-"); return `${d}/${m}/${a}`; };
+  const MSG = {
+    senha_incorreta: "Senha incorreta.", pin_invalido: "O PIN precisa ter de 4 a 6 números.", pin_em_uso: "Esse PIN já é de outro atendente. Escolha outro.",
+    regra_invalida: "Algum valor está fora do permitido. Confira os números.", texto_vazio: "Escreva a mensagem.", senha_curta: "A senha precisa ter pelo menos 8 caracteres.",
+  };
+  const msgErro = (e) => MSG[e] || csMsgErro(e);
+
+  async function api(rota, corpo) {
+    const r = await csApi("/admin/" + rota, Object.assign({ sessao }, corpo || {}));
+    if (r.erro === "sessao_expirada") { csStore.del(KEY); sessao = null; telaLogin("Sessão encerrada. Entre de novo."); throw new Error("sessao"); }
+    return r;
+  }
+
+  // ---------- Login ----------
+  function telaLogin(msg) {
+    app.innerHTML = `
+    <section class="listras topo" style="padding-bottom:40px"><img src="logo.png" alt="Schmitt Buffet e Eventos"><h1>Painel do Cartão Schmitt</h1></section>
+    <form class="login-p" id="f" novalidate>
+      <label class="campo" for="senha">Senha do painel<input type="password" id="senha" autocomplete="current-password"></label>
+      <p class="err" id="e" ${msg ? "" : "hidden"}>${csEsc(msg || "")}</p>
+      <button class="btn principal" id="ok">Entrar</button>
+    </form>`;
+    document.getElementById("senha").focus();
+    document.getElementById("f").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const ok = document.getElementById("ok"); ok.disabled = true;
+      const r = await csApi("/admin/login", { senha: document.getElementById("senha").value });
+      ok.disabled = false;
+      if (r.erro) { const e = document.getElementById("e"); e.hidden = false; e.textContent = msgErro(r.erro); return; }
+      sessao = r.sessao; csStore.set(KEY, sessao); estrutura();
+    });
+  }
+
+  // ---------- Estrutura ----------
+  function estrutura() {
+    app.innerHTML = `
+    <header class="barra-topo listras">
+      <div class="marca"><img src="logo.png" alt="Schmitt Buffet e Eventos"><h1>Painel do Cartão Schmitt</h1></div>
+      <nav class="abas" role="tablist" aria-label="Seções do painel">
+        <button role="tab" data-aba="geral">Visão geral</button>
+        <button role="tab" data-aba="clientes">Clientes</button>
+        <button role="tab" data-aba="equipe">Equipe</button>
+        <button role="tab" data-aba="regras">Regras e avisos</button>
+        <button role="tab" data-aba="totens">Totens</button>
+        <button id="sair">Sair</button>
+      </nav>
+    </header>
+    <main class="conteudo" id="conteudo"></main>`;
+    document.querySelectorAll("[data-aba]").forEach((b) => b.onclick = () => { aba = b.dataset.aba; mostrar(); });
+    document.getElementById("sair").onclick = async () => { try { await api("sair"); } catch (_) {} csStore.del(KEY); sessao = null; telaLogin(); };
+    mostrar();
+  }
+  function mostrar() {
+    document.querySelectorAll("[data-aba]").forEach((b) => b.setAttribute("aria-selected", b.dataset.aba === aba));
+    const c = document.getElementById("conteudo");
+    c.innerHTML = `<div class="bloco"><div class="spinner escuro"></div></div>`;
+    ({ geral: abaGeral, clientes: abaClientes, equipe: abaEquipe, regras: abaRegras, totens: abaTotens })[aba](c).catch((e) => { if (e.message !== "sessao") c.innerHTML = `<div class="bloco"><p class="err">${csEsc(csMsgErro("falha_conexao"))}</p></div>`; });
+  }
+
+  // ---------- Visão geral ----------
+  async function abaGeral(c) {
+    const ate = hoje(); const d0 = new Date(ate); d0.setDate(d0.getDate() - (periodo - 1));
+    const r = await api("resumo", { de: d0.toISOString().slice(0, 10), ate });
+    const s = r.resumo;
+    c.innerHTML = `
+    <div class="linha entre"><div class="chips" id="per">${[7, 30, 90].map((p) => `<button aria-pressed="${p === periodo}" data-p="${p}">Últimos ${p} dias</button>`).join("")}</div>
+      <span class="muted small">${dataBR(r.de)} a ${dataBR(r.ate)}</span></div>
+    <div class="numeros">
+      <div class="numero destaque"><b>${s.clientes}</b><span>clientes com cartão · ${s.novos} novos no período</span></div>
+      <div class="numero"><b>${s.voltaram}</b><span>voltaram 2 vezes ou mais</span></div>
+      <div class="numero"><b>${s.carimbos}</b><span>carimbos no período</span></div>
+      <div class="numero"><b>${s.premios_a_usar}</b><span>prêmios ainda a usar</span></div>
+      <div class="numero"><b>${s.premios_gerados}</b><span>cartelas completadas</span></div>
+      <div class="numero"><b>${s.premios_entregues}</b><span>almoços grátis entregues</span></div>
+      <div class="numero"><b>${s.aniversarios}</b><span>aniversários · ${s.acompanhantes} acompanhantes pagantes</span></div>
+      <div class="numero"><b>${csMoeda(s.valor_beneficios)}</b><span>em almoços grátis no período</span></div>
+    </div>
+    <div class="duas">
+      <section class="bloco"><div class="linha entre"><h2>Visitas por dia</h2>
+        <div class="legenda"><span><i style="background:#0b7fae"></i>Caixa 1</span><span><i style="background:#8cc9e3"></i>Caixa 2</span></div></div>
+        <div class="grafico">${grafico(s.por_dia)}</div></section>
+      <section class="bloco" id="conf"></section>
+    </div>`;
+    document.querySelectorAll("#per button").forEach((b) => b.onclick = () => { periodo = +b.dataset.p; mostrar(); });
+    conferencia(hoje());
+  }
+
+  function grafico(dias) {
+    const W = 640, H = 220, pe = 28, top = 14, esq = 34;
+    const max = Math.max(4, ...dias.map((d) => d.cx1 + d.cx2));
+    const passo = Math.ceil(max / 4), teto = passo * 4;
+    const bw = (W - esq - 8) / dias.length, y = (v) => top + (H - top - pe) * (1 - v / teto);
+    let g = "";
+    for (let i = 0; i <= 4; i++) { const v = passo * i; g += `<line x1="${esq}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}" stroke="#e3ebef"/><text x="${esq - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#5e707b">${v}</text>`; }
+    const cada = Math.max(1, Math.ceil(dias.length / 10));
+    dias.forEach((d, i) => {
+      const x = esq + i * bw + bw * 0.15, w = bw * 0.7, sab = new Date(d.dia + "T12:00").getDay() === 6;
+      if (sab) g += `<rect x="${esq + i * bw}" y="${top}" width="${bw}" height="${H - top - pe}" fill="#f2f5f7"/>`;
+      if (d.cx1) g += `<rect x="${x}" y="${y(d.cx1)}" width="${w}" height="${y(0) - y(d.cx1)}" fill="#0b7fae" rx="2"><title>${dataBR(d.dia)} · Caixa 1: ${d.cx1}</title></rect>`;
+      if (d.cx2) g += `<rect x="${x}" y="${y(d.cx1 + d.cx2)}" width="${w}" height="${y(d.cx1) - y(d.cx1 + d.cx2)}" fill="#8cc9e3" rx="2"><title>${dataBR(d.dia)} · Caixa 2: ${d.cx2}</title></rect>`;
+      if (i % cada === 0) g += `<text x="${esq + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#5e707b">${d.dia.slice(8)}/${d.dia.slice(5, 7)}</text>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Visitas por dia em cada caixa">${g}</svg>`;
+  }
+
+  async function conferencia(dia) {
+    const el = document.getElementById("conf"); if (!el) return;
+    el.innerHTML = `<div class="linha entre"><h2>Conferência do dia</h2><input type="date" id="diaConf" value="${dia}" aria-label="Dia da conferência"></div>
+      <p class="sub">Almoços grátis liberados no caixa. Compare com o fechamento da maquininha.</p><div id="confT"><div class="spinner escuro"></div></div>`;
+    document.getElementById("diaConf").onchange = (e) => conferencia(e.target.value);
+    const r = await api("beneficios", { dia });
+    const b = r.beneficios || [];
+    const tot = b.reduce((a, x) => a + Number(x.valor), 0);
+    document.getElementById("confT").innerHTML = b.length ? `<div class="tabela"><table>
+      <thead><tr><th>Hora</th><th>Cliente</th><th>Tipo</th><th class="num">Valor</th></tr></thead>
+      <tbody>${b.map((x) => `<tr><td>${x.hora}<br><span class="muted small">Caixa ${x.caixa === "CX2" ? "2" : "1"}</span></td><td>${csEsc(x.cliente)}<br><span class="muted small">${csEsc(x.codigo)} · liberado por ${csEsc(x.atendente || "—")}</span></td>
+        <td>${x.tipo === "premio" ? '<span class="tag ouro">Prêmio</span>' : `<span class="tag verde">Aniversário +${x.acompanhantes}</span>`}</td><td class="num">${csMoeda(x.valor)}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><td colspan="3">${b.length} ${b.length === 1 ? "almoço grátis" : "almoços grátis"}</td><td class="num">${csMoeda(tot)}</td></tr></tfoot></table></div>`
+      : `<p class="vazio">Nenhum almoço grátis liberado em ${dataBR(dia)}.</p>`;
+  }
+
+  // ---------- Clientes ----------
+  async function abaClientes(c) {
+    c.innerHTML = `
+    <section class="bloco">
+      <div class="linha entre"><h2>Clientes</h2>
+        <form id="fb" class="linha" style="flex:1;justify-content:flex-end;min-width:260px" novalidate>
+          <input type="text" id="q" placeholder="Nome, telefone ou nº do cartão" style="max-width:340px" aria-label="Buscar cliente">
+          <button class="btn dark">Buscar</button></form></div>
+      <div class="chips" id="tipos">${[["recentes", "Cadastros recentes"], ["sumidos", "Quem sumiu"], ["perto", "Perto do prêmio"], ["vencendo", "Prêmio vencendo"], ["aniversariantes", "Aniversariantes do mês"]]
+        .map(([k, l]) => `<button aria-pressed="${k === listaTipo}" data-t="${k}">${l}</button>`).join("")}</div>
+      <div id="lista"></div>
+    </section>`;
+    document.querySelectorAll("#tipos button").forEach((b) => b.onclick = () => { listaTipo = b.dataset.t; document.querySelectorAll("#tipos button").forEach((x) => x.setAttribute("aria-pressed", x === b)); carregarLista(); });
+    document.getElementById("fb").addEventListener("submit", (ev) => { ev.preventDefault(); buscar(document.getElementById("q").value); });
+    carregarLista();
+  }
+  async function carregarLista() {
+    const el = document.getElementById("lista"); el.innerHTML = `<div class="spinner escuro"></div>`;
+    const r = await api("lista", { tipo: listaTipo });
+    const l = r.lista || [];
+    const col = {
+      recentes: ["Cadastro", (x) => x.criado.slice(8, 10) + "/" + x.criado.slice(5, 7) + " " + x.criado.slice(11), "Carimbos", (x) => x.carimbos],
+      sumidos: ["Sem vir há", (x) => `<span class="tag vermelho">${x.dias} dias</span>`, "Carimbos", (x) => x.carimbos],
+      perto: ["Carimbos", (x) => x.carimbos, "Faltam", (x) => `<span class="tag ouro">${x.faltam}</span>`],
+      vencendo: ["Vence em", (x) => dataBR(x.vence_em), "Faltam", (x) => `<span class="tag ${x.dias <= 7 ? "vermelho" : "ouro"}">${x.dias} dias</span>`],
+      aniversariantes: ["Aniversário", (x) => x.dia.slice(3) + "/" + x.dia.slice(0, 2), "Almoço do aniversário", (x) => x.usou ? '<span class="tag verde">Já usou</span>' : '<span class="tag cinza">Não usou</span>'],
+    }[listaTipo];
+    el.innerHTML = l.length ? `<div class="tabela"><table><thead><tr><th>Cliente</th><th>WhatsApp</th><th>${col[0]}</th><th>${col[2]}</th><th></th></tr></thead>
+      <tbody>${l.map((x) => `<tr><td>${csEsc(x.nome)}<br><span class="muted small">${csEsc(x.codigo)}</span></td><td>${fone(x.whatsapp)}</td><td>${col[1](x)}</td><td>${col[3](x)}</td><td>${zap(x.whatsapp)}</td></tr>`).join("")}</tbody></table></div>`
+      : `<p class="vazio">Ninguém nesta lista agora.</p>`;
+  }
+  async function buscar(q) {
+    const el = document.getElementById("lista");
+    if (q.trim().length < 3) { el.innerHTML = `<p class="vazio">Digite pelo menos 3 letras, o telefone com DDD ou o número do cartão.</p>`; return; }
+    document.querySelectorAll("#tipos button").forEach((x) => x.setAttribute("aria-pressed", false));
+    el.innerHTML = `<div class="spinner escuro"></div>`;
+    const r = await api("buscar", { q });
+    const l = r.clientes || [];
+    el.innerHTML = l.length ? `<div class="tabela"><table><thead><tr><th>Cliente</th><th>WhatsApp</th><th>Aniversário</th><th class="num">Carimbos</th><th class="num">Visitas</th><th>Prêmio</th><th></th></tr></thead>
+      <tbody>${l.map((x) => `<tr><td>${csEsc(x.nome)}<br><span class="muted small">${csEsc(x.codigo)} · última visita ${dataBR(x.ultima_visita)}</span></td><td>${fone(x.whatsapp)}</td><td>${csEsc(x.nascimento || "—")}</td>
+        <td class="num">${x.carimbos}</td><td class="num">${x.visitas}</td><td>${x.premios ? '<span class="tag ouro">A usar</span>' : "—"}</td>
+        <td><div class="linha">${zap(x.whatsapp)}<button class="btn sm" data-ex="${csEsc(x.codigo)}" data-nome="${csEsc(x.nome)}">Excluir</button></div></td></tr>`).join("")}</tbody></table></div><div id="exc"></div>`
+      : `<p class="vazio">Ninguém encontrado com “${csEsc(q)}”.</p>`;
+    el.querySelectorAll("[data-ex]").forEach((b) => b.onclick = () => {
+      document.getElementById("exc").innerHTML = `<div class="confirmar"><b>Excluir o cadastro de ${b.dataset.nome} (${b.dataset.ex})?</b>
+        <span>Use quando o cliente pedir para sair (LGPD). Nome, WhatsApp e aniversário são apagados e o cartão para de funcionar. Não dá para desfazer.</span>
+        <div class="linha"><button class="btn sm" id="exNao">Cancelar</button><button class="btn sm" id="exSim" style="background:var(--erro);border-color:var(--erro);color:#fff">Excluir cadastro</button></div></div>`;
+      document.getElementById("exNao").onclick = () => document.getElementById("exc").innerHTML = "";
+      document.getElementById("exSim").onclick = async () => { const r = await api("excluir-cliente", { codigo: b.dataset.ex }); toast(r.ok ? "Cadastro excluído" : "Cliente não encontrado"); buscar(q); };
+    });
+  }
+
+  // ---------- Equipe ----------
+  async function abaEquipe(c) {
+    const r = await api("atendentes");
+    const l = r.atendentes || [];
+    c.innerHTML = `
+    <section class="bloco"><h2>Atendentes dos caixas</h2>
+      <p class="sub">Cada atendente entra na tela do caixa com o próprio PIN. Assim fica registrado quem liberou cada almoço grátis.</p>
+      ${l.length ? `<div class="tabela"><table><thead><tr><th>Nome</th><th>Situação</th><th class="num">Almoços liberados (30 dias)</th><th class="num">Registros manuais (30 dias)</th><th></th></tr></thead>
+      <tbody>${l.map((a) => `<tr><td><b>${csEsc(a.nome)}</b></td><td>${a.ativo ? '<span class="tag verde">Ativo</span>' : '<span class="tag cinza">Desativado</span>'}</td>
+        <td class="num">${a.entregas_30d}</td><td class="num">${a.manuais_30d}</td>
+        <td><div class="linha"><button class="btn sm" data-pin="${a.id}" data-nome="${csEsc(a.nome)}">Trocar PIN</button>
+          <button class="btn sm" data-st="${a.id}" data-at="${a.ativo ? 0 : 1}">${a.ativo ? "Desativar" : "Ativar"}</button></div></td></tr>`).join("")}</tbody></table></div>` : `<p class="vazio">Nenhum atendente ainda.</p>`}
+      <div id="pinBox"></div>
+    </section>
+    <form class="bloco" id="fn" novalidate><h2>Novo atendente</h2>
+      <div class="form-grade">
+        <label class="campo" for="nNome">Nome<input type="text" id="nNome" autocomplete="off"></label>
+        <label class="campo" for="nPin">PIN (4 a 6 números)<input type="text" id="nPin" inputmode="numeric" maxlength="6" autocomplete="off"></label>
+      </div>
+      <p class="err" id="nErr" hidden></p>
+      <div><button class="btn principal">Cadastrar atendente</button></div>
+    </form>`;
+    c.querySelectorAll("[data-st]").forEach((b) => b.onclick = async () => { await api("atendente-status", { id: b.dataset.st, ativo: b.dataset.at === "1" }); toast(b.dataset.at === "1" ? "Atendente ativado" : "Atendente desativado"); mostrar(); });
+    c.querySelectorAll("[data-pin]").forEach((b) => b.onclick = () => {
+      document.getElementById("pinBox").innerHTML = `<form class="linha" id="fp" novalidate><label class="campo" for="pNovo" style="flex:1;min-width:200px">Novo PIN de ${b.dataset.nome}<input type="text" id="pNovo" inputmode="numeric" maxlength="6" autocomplete="off"></label>
+        <button class="btn dark" style="align-self:flex-end">Salvar PIN</button></form><p class="err" id="pErr" hidden></p>`;
+      document.getElementById("pNovo").focus();
+      document.getElementById("fp").addEventListener("submit", async (ev) => { ev.preventDefault();
+        const x = await api("atendente-pin", { id: b.dataset.pin, pin: document.getElementById("pNovo").value });
+        if (x.erro) { const e = document.getElementById("pErr"); e.hidden = false; e.textContent = msgErro(x.erro); return; }
+        toast("PIN trocado"); mostrar(); });
+    });
+    document.getElementById("fn").addEventListener("submit", async (ev) => { ev.preventDefault();
+      const nome = document.getElementById("nNome").value.trim(), pin = document.getElementById("nPin").value.trim(), e = document.getElementById("nErr");
+      if (nome.length < 2) { e.hidden = false; e.textContent = "Digite o nome do atendente."; return; }
+      const x = await api("atendente-novo", { nome, pin });
+      if (x.erro) { e.hidden = false; e.textContent = msgErro(x.erro); return; }
+      toast("Atendente cadastrado"); mostrar(); });
+  }
+
+  // ---------- Regras e avisos ----------
+  async function abaRegras(c) {
+    config = await api("config");
+    const g = config.regras;
+    const precos = [1, 2, 3, 4, 5, 0].map((d) => `${DIAS[d]}: ${csMoeda(g.preco_livre[String(d)])}`).join(" · ");
+    c.innerHTML = `
+    <form class="bloco" id="fr" novalidate><h2>Regras do programa</h2>
+      <div class="form-grade">
+        <label class="campo" for="rMeta">Carimbos para o prêmio<input type="number" id="rMeta" min="6" max="30" value="${g.meta}"></label>
+        <label class="campo" for="rBonus">Carimbos de presente no cadastro<input type="number" id="rBonus" min="0" max="5" value="${g.bonus_cadastro}"></label>
+        <label class="campo" for="rTeto">Valor do almoço grátis (R$)<input type="number" id="rTeto" min="10" max="500" step="0.01" value="${g.teto_premio}"></label>
+        <label class="campo" for="rVal">Validade do prêmio (dias)<input type="number" id="rVal" min="15" max="365" value="${g.validade_dias}"></label>
+        <label class="campo" for="rDobro">Carimbo em dobro<select id="rDobro"><option value="">Nenhum dia</option>${[1, 2, 3, 4, 5, 0].map((d) => `<option value="${d}" ${g.dia_dobro === d ? "selected" : ""}>${DIAS[d]}</option>`).join("")}</select></label>
+        <label class="campo" for="rNiver">Amigos pagantes no aniversário<input type="number" id="rNiver" min="1" max="20" value="${g.niver_acompanhantes}"></label>
+        <label class="campo" for="rSum">“Sumido” depois de (dias)<input type="number" id="rSum" min="3" max="365" value="${g.sumido_dias}"></label>
+      </div>
+      <p class="small muted">Buffet livre usado no aniversário: ${precos}. O prêmio da cartela vale de segunda a quinta; o carimbo, das 11h às 15h, 1 por dia.</p>
+      <p class="nota">Mudanças valem na hora para todos os clientes. Se mudar regras que o cliente vê (carimbos, presente, dias), atualize também o texto do site e o regulamento.</p>
+      <p class="err" id="rErr" hidden></p>
+      <div><button class="btn principal">Salvar regras</button></div>
+    </form>
+    <section class="bloco"><h2>Avisos automáticos</h2>
+      <p class="nota">Os avisos aparecem na tela de bloqueio do cliente. Eles começam a ser enviados quando o cartão estiver na Apple Wallet e no Google Wallet. Pode deixar tudo configurado desde já.</p>
+      <div class="grid" style="display:grid;gap:12px">${config.avisos.map((a) => `
+        <div class="aviso-item"><header><div><h3>${AVISOS[a.tipo][0]}</h3><p>${AVISOS[a.tipo][1]}</p></div>
+          <label class="chave"><input type="checkbox" data-av="${a.tipo}" ${a.ativo ? "checked" : ""} aria-label="Ligar aviso ${AVISOS[a.tipo][0]}"><span></span></label></header>
+          <textarea data-tx="${a.tipo}" maxlength="200" aria-label="Texto do aviso ${AVISOS[a.tipo][0]}">${csEsc(a.texto)}</textarea>
+          <div><button class="btn sm dark" data-sv="${a.tipo}">Salvar texto</button></div></div>`).join("")}</div>
+      <p class="small muted">Use {nome} para o primeiro nome do cliente. Aviso demais cansa: deixe ligados só os que fazem sentido.</p>
+    </section>
+    <form class="bloco" id="fm" novalidate><h2>Mandar um aviso</h2>
+      <p class="sub">Para eventos, promoções e novidades, como o Kit Schmitt de domingo ou o Gourmet Show.</p>
+      <div class="form-grade">
+        <label class="campo" for="mSeg">Para quem<select id="mSeg">${Object.entries(SEG).map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></label>
+        <label class="campo" for="mQuando">Quando enviar<input type="datetime-local" id="mQuando"></label>
+      </div>
+      <label class="campo" for="mTexto">Mensagem<textarea id="mTexto" maxlength="200" placeholder="Domingo tem Kit Schmitt! Retire das 11h às 14h aqui no restaurante."></textarea></label>
+      <p class="small muted">Deixe “Quando enviar” em branco para enviar assim que a Wallet estiver ativa.</p>
+      <p class="err" id="mErr" hidden></p>
+      <div><button class="btn principal">Programar aviso</button></div>
+      ${config.mensagens.length ? `<div class="tabela"><table><thead><tr><th>Mensagem</th><th>Para</th><th>Situação</th></tr></thead><tbody>${config.mensagens.map((m) => `<tr><td>${csEsc(m.texto)}</td><td>${SEG[m.segmento] || m.segmento}</td>
+        <td>${m.enviada_em ? `<span class="tag verde">Enviada ${dataBR(m.enviada_em)}</span>` : `<span class="tag cinza">${m.agendada_para ? "Agendada " + dataBR(m.agendada_para) : "Aguardando a Wallet"}</span>`}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    </form>
+    <form class="bloco" id="fs" novalidate><h2>Senha do painel</h2>
+      <div class="form-grade"><label class="campo" for="sNova">Nova senha (mínimo 8 caracteres)<input type="password" id="sNova" autocomplete="new-password"></label></div>
+      <p class="err" id="sErr" hidden></p>
+      <div><button class="btn dark">Trocar senha</button></div>
+    </form>`;
+    const num = (id) => document.getElementById(id).value;
+    document.getElementById("fr").addEventListener("submit", async (ev) => { ev.preventDefault();
+      const x = await api("regras", { regras: { meta: +num("rMeta"), bonus_cadastro: +num("rBonus"), teto_premio: +num("rTeto"), validade_dias: +num("rVal"), dia_dobro: num("rDobro"), niver_acompanhantes: +num("rNiver"), sumido_dias: +num("rSum") } });
+      if (x.erro) { const e = document.getElementById("rErr"); e.hidden = false; e.textContent = msgErro(x.erro); return; }
+      toast("Regras salvas"); });
+    c.querySelectorAll("[data-av]").forEach((ch) => ch.onchange = async () => { const t = ch.dataset.av;
+      await api("aviso", { tipo: t, ativo: ch.checked, texto: c.querySelector(`[data-tx="${t}"]`).value }); toast(ch.checked ? "Aviso ligado" : "Aviso desligado"); });
+    c.querySelectorAll("[data-sv]").forEach((b) => b.onclick = async () => { const t = b.dataset.sv;
+      await api("aviso", { tipo: t, ativo: c.querySelector(`[data-av="${t}"]`).checked, texto: c.querySelector(`[data-tx="${t}"]`).value }); toast("Texto salvo"); });
+    document.getElementById("fm").addEventListener("submit", async (ev) => { ev.preventDefault();
+      const q = num("mQuando"); const x = await api("mensagem", { segmento: num("mSeg"), texto: num("mTexto"), agendada_para: q ? new Date(q).toISOString() : null });
+      if (x.erro) { const e = document.getElementById("mErr"); e.hidden = false; e.textContent = msgErro(x.erro); return; }
+      toast(`Aviso programado para ${x.total} ${x.total === 1 ? "cliente" : "clientes"}`); mostrar(); });
+    document.getElementById("fs").addEventListener("submit", async (ev) => { ev.preventDefault();
+      const x = await api("senha", { nova: num("sNova") });
+      if (x.erro) { const e = document.getElementById("sErr"); e.hidden = false; e.textContent = msgErro(x.erro); return; }
+      toast("Senha trocada"); document.getElementById("sNova").value = ""; });
+  }
+
+  // ---------- Totens ----------
+  async function abaTotens(c) {
+    config = config || await api("config");
+    c.innerHTML = `
+    <section class="bloco"><h2>Totens e telas dos caixas</h2>
+      <p class="sub">Cada caixa tem um endereço próprio. Ele vai gravado na tag NFC do totem e impresso como QR atrás dele.</p>
+      <div class="totens">${config.caixas.map((x) => {
+        const link = `${SITE}toque.html?c=${x.tag}`;
+        return `<div class="totem"><h3 style="font-family:var(--f-marca);font-weight:400;font-size:1.25rem">${csEsc(x.nome)}</h3>
+          <label class="campo" style="width:100%">Endereço da tag (gravar na NFC)<div class="copiar"><input type="text" readonly value="${link}"><button class="btn sm" data-cp="${link}" type="button">Copiar</button></div></label>
+          <div class="qr"><div id="qr-${x.id}"></div><span>${csEsc(x.nome)}</span></div>
+          <label class="campo" style="width:100%">Tela do caixa (abrir no computador)<div class="copiar"><input type="text" readonly value="${SITE}caixa.html?cx=${x.id}"><button class="btn sm" data-cp="${SITE}caixa.html?cx=${x.id}" type="button">Copiar</button></div></label>
+        </div>`; }).join("")}</div>
+      <p class="nota">Para gravar a tag: no celular Android, instale um app gravador de NFC (por exemplo, NFC Tools), escolha “Escrever”, depois “Adicionar registro” do tipo URL, cole o endereço do caixa e encoste o celular na tag.</p>
+    </section>`;
+    config.caixas.forEach((x) => { try { new QRCode(document.getElementById("qr-" + x.id), { text: `${SITE}toque.html?c=${x.tag}`, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.M }); } catch (_) {} });
+    c.querySelectorAll("[data-cp]").forEach((b) => b.onclick = async () => {
+      try { await navigator.clipboard.writeText(b.dataset.cp); toast("Endereço copiado"); }
+      catch (_) { const i = b.previousElementSibling; i.select(); toast("Selecione e copie com Ctrl+C"); }
+    });
+  }
+
+  if (sessao) estrutura(); else telaLogin();
+})();
+</script>
+</body>
+</html>

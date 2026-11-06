@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cartão Schmitt</title>
+<meta name="description" content="Cartão fidelidade do Schmitt Buffet e Eventos: a cada 12 almoços, o próximo é por nossa conta.">
+<meta name="theme-color" content="#0b7fae">
+<link rel="icon" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Figtree:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="estilo.css">
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div class="app" id="app">
+  <section class="listras topo"><img src="logo.png" alt="Schmitt Buffet e Eventos"><div class="spinner" aria-label="Carregando"></div></section>
+</div>
+<footer class="rod"><a href="regulamento.html">Regulamento</a> · Schmitt Buffet e Eventos · AABB Brusque</footer>
+
+<script>
+(function () {
+  const app = document.getElementById("app");
+  const params = new URLSearchParams(location.search);
+  const tagVolta = params.get("c"); // veio de um totem sem cartão
+  const PRATO = CS_ICONE_PRATO, PRESENTE = CS_ICONE_PRESENTE;
+
+  const ICONES = {
+    celular: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
+    nfc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 9.5a3.5 3.5 0 0 1 0 5M9.5 7a7 7 0 0 1 0 10M13 4.5a10.5 10.5 0 0 1 0 15M16.5 2a14 14 0 0 1 0 20"/></svg>',
+    presente: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16v10H4zM12 10v10M3 7h18v3H3zM12 7c-1.5-3-5-3.5-5-1s3 1 5 1zm0 0c1.5-3 5-3.5 5-1s-3 1-5 1z"/></svg>',
+    toque: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="11" height="18" rx="2.2"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg>',
+  };
+  const REGRAS = `<details><summary>Como funciona</summary><ul>
+      <li>1 carimbo por almoço pago, no máximo 1 por dia, encostando o celular no totem do caixa.</li>
+      <li>No cadastro você ganha 2 carimbos de presente (só na primeira cartela).</li>
+      <li>Com 12 carimbos: 1 almoço grátis, de segunda a quinta, em até 60 dias. Bebidas não inclusas.</li>
+      <li>Toda segunda-feira o carimbo vale em dobro.</li>
+      <li>Aniversário: na semana do seu aniversário, venha com 4 amigos pagantes e o seu almoço é por nossa conta.</li>
+      <li><a href="regulamento.html">Ler o regulamento completo</a></li>
+    </ul></details>`;
+
+  function selos(meta, n, presentes) {
+    let h = "";
+    for (let i = 0; i < meta; i++) {
+      const on = i < n, g = on && i < presentes, last = i === meta - 1;
+      h += `<div class="selo ${on ? (g ? "presente" : "on") : last ? "meta" : ""}">${on ? (g ? PRESENTE : PRATO) : last ? "★" : i + 1}</div>`;
+    }
+    return h;
+  }
+
+  function depoisDeEntrar(token) {
+    csStore.set("cs_token", token);
+    if (tagVolta) { location.href = "toque.html?c=" + encodeURIComponent(tagVolta); return true; }
+    return false;
+  }
+
+  // ---------- Cadastro ----------
+  function telaCadastro(msg) {
+    app.innerHTML = `
+    <section class="listras topo">
+      <img src="logo.png" alt="Schmitt Buffet e Eventos">
+      <h1>A cada 12 almoços, o próximo é por nossa conta</h1>
+      <p>Cadastre-se e já comece com 2 carimbos.</p>
+    </section>
+    <div class="cartao listras" aria-label="Seu cartão começa com 2 carimbos de presente">
+      <div class="corpo">
+        <div class="faixa">Cartão Schmitt</div>
+        <div class="selos">${selos(12, 2, 2)}</div>
+        <div class="rodape"><div>Seu cartão já começa assim<b>2 de 12 carimbos</b></div><div style="text-align:right">Prêmio<b>Almoço grátis</b></div></div>
+      </div>
+    </div>
+    <form class="miolo" id="f" novalidate>
+      <div class="vantagens">
+        <div>${ICONES.celular}<b>Sem aplicativo</b>Fica no seu celular</div>
+        <div>${ICONES.nfc}<b>Encostou, carimbou</b>No totem do caixa</div>
+        <div>${ICONES.presente}<b>Aniversário</b>Com 4 amigos, almoço grátis</div>
+      </div>
+      <label class="campo" for="nome">Seu nome<input type="text" id="nome" autocomplete="name" required></label>
+      <label class="campo" for="whats">WhatsApp com DDD<input type="tel" id="whats" inputmode="tel" autocomplete="tel" placeholder="(47) 99999-9999" required></label>
+      <label class="campo" for="nasc">Data de aniversário<input type="text" id="nasc" inputmode="numeric" autocomplete="bday" placeholder="DD/MM/AAAA" maxlength="10" required></label>
+      <label class="aceite" for="lgpd"><input type="checkbox" id="lgpd"> <span>Li o <a href="regulamento.html">regulamento</a> e autorizo o Schmitt Buffet a usar meu nome, WhatsApp e aniversário para o cartão e para me enviar avisos.</span></label>
+      <p class="err" id="e" ${msg ? "" : "hidden"}>${csEsc(msg || "")}</p>
+      <button class="btn principal" id="ok" type="submit">Criar meu cartão</button>
+      <button class="link" type="button" id="jaTenho">Já tenho cartão</button>
+      ${REGRAS}
+    </form>`;
+    csMascaraData(document.getElementById("nasc"));
+    document.getElementById("jaTenho").onclick = () => telaEntrar();
+    document.getElementById("f").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const e = document.getElementById("e"), ok = document.getElementById("ok");
+      const nome = document.getElementById("nome").value.trim();
+      const whatsapp = document.getElementById("whats").value;
+      const nascimento = csDataIso(document.getElementById("nasc").value);
+      const lgpd = document.getElementById("lgpd").checked;
+      const falha = (t) => { e.hidden = false; e.textContent = t; };
+      if (!nome) return falha("Digite o seu nome.");
+      if (whatsapp.replace(/\D/g, "").length < 10) return falha("Digite o WhatsApp com DDD.");
+      if (!nascimento) return falha("Digite a data de aniversário completa, por exemplo 06/11/1985.");
+      if (!lgpd) return falha("Marque o aceite do regulamento para criar o cartão.");
+      ok.disabled = true; ok.textContent = "Criando o seu cartão…";
+      const r = await csApi("/cadastro", { nome, whatsapp, nascimento, lgpd });
+      if (r.erro) { ok.disabled = false; ok.textContent = "Criar meu cartão"; return falha(csMsgErro(r.erro)); }
+      if (!depoisDeEntrar(r.token)) telaCartao(Object.assign({}, r.cartao, { novo: r.novo }), r.novo ? "Cartão criado! Você já ganhou 2 carimbos." : "Encontramos o seu cartão.");
+    });
+  }
+
+  // ---------- Entrar (celular novo) ----------
+  function telaEntrar() {
+    app.innerHTML = `
+    <section class="listras topo" style="padding-bottom:36px">
+      <img src="logo.png" alt="Schmitt Buffet e Eventos">
+      <h1>Entrar no meu cartão</h1>
+      <p>Use o WhatsApp e a data de aniversário do cadastro.</p>
+    </section>
+    <form class="miolo" id="f" novalidate>
+      <label class="campo" for="whats">WhatsApp com DDD<input type="tel" id="whats" inputmode="tel" autocomplete="tel" placeholder="(47) 99999-9999" required></label>
+      <label class="campo" for="nasc">Data de aniversário<input type="text" id="nasc" inputmode="numeric" autocomplete="bday" placeholder="DD/MM/AAAA" maxlength="10" required></label>
+      <p class="err" id="e" hidden></p>
+      <button class="btn principal" id="ok" type="submit">Entrar</button>
+      <button class="link" type="button" id="voltar">Ainda não tenho cartão</button>
+    </form>`;
+    csMascaraData(document.getElementById("nasc"));
+    document.getElementById("voltar").onclick = () => telaCadastro();
+    document.getElementById("f").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const e = document.getElementById("e"), ok = document.getElementById("ok");
+      const nascimento = csDataIso(document.getElementById("nasc").value);
+      if (!nascimento) { e.hidden = false; e.textContent = "Digite a data de aniversário completa, por exemplo 06/11/1985."; return; }
+      ok.disabled = true;
+      const r = await csApi("/entrar", { whatsapp: document.getElementById("whats").value, nascimento });
+      ok.disabled = false;
+      if (r.erro) { e.hidden = false; e.textContent = csMsgErro(r.erro); return; }
+      if (!depoisDeEntrar(r.token)) telaCartao(r.cartao, "Pronto, o seu cartão está neste celular.");
+    });
+  }
+
+  // ---------- Meu cartão ----------
+  function telaCartao(c, aviso) {
+    const p = c.premio, n = c.aniversario;
+    const pct = Math.round((c.carimbos / c.meta) * 100);
+    const presentes = c.novo ? Math.min(2, c.carimbos) : 0; // destaca os 2 de presente logo após o cadastro
+    const wallet = (CS_WALLET.apple ? `<button class="btn wallet" type="button" id="wApple">Adicionar à Apple Wallet</button>` : "")
+                 + (CS_WALLET.google ? `<button class="btn wallet" type="button" id="wGoogle">Adicionar ao Google Wallet</button>` : "");
+    app.innerHTML = `
+    <section class="listras saudacao">
+      <div><small>Olá,</small><h1>${csEsc(csPrimeiro(c.nome))}</h1></div>
+      <img src="logo.png" alt="Schmitt Buffet e Eventos">
+    </section>
+    <section class="cartao listras" aria-label="Seu Cartão Schmitt">
+      <div class="corpo">
+        <div class="linha1"><span style="font-weight:700">${csEsc(c.codigo)}</span><div class="cont">carimbos<b>${c.carimbos}/${c.meta}</b></div></div>
+        <div class="faixa">Cartão Schmitt</div>
+        <div class="selos">${selos(c.meta, c.carimbos, presentes)}</div>
+        <div class="rodape"><div>Cliente<b>${csEsc(c.nome)}</b></div><div style="text-align:right">Prêmio<b>Almoço grátis</b></div></div>
+      </div>
+    </section>
+    <div class="miolo">
+      ${aviso ? `<div class="aviso-ok">${csEsc(aviso)}</div>` : ""}
+      ${p ? `<div class="aviso-premio"><b>Seu almoço grátis está liberado</b>Use de segunda a quinta até ${csData(p.vence_em)}. É só encostar o celular no totem do caixa.</div>` : ""}
+      ${n && n.disponivel ? `<div class="aviso-premio"><b>Feliz aniversário!</b>Venha com ${n.acompanhantes} amigos pagantes até ${csData(n.ate)} e o seu almoço é por nossa conta.</div>` : ""}
+      <div class="progresso">
+        <div class="t"><b>Faltam ${c.faltam} ${c.faltam === 1 ? "almoço" : "almoços"}</b><span>para o almoço grátis</span></div>
+        <div class="barra"><i style="width:${pct}%"></i></div>
+      </div>
+      <div class="como">
+        <div class="ic">${ICONES.toque}</div>
+        <p><b>Depois de pagar, encoste o celular no totem</b>Segunda-feira o carimbo vale em dobro.</p>
+      </div>
+      ${wallet}
+      ${REGRAS}
+      <details id="qrBox"><summary>Mostrar QR para o caixa</summary>
+        <p class="small muted" style="margin-top:8px">Use se o celular não tiver aproximação (NFC).</p>
+        <div class="qr"><div id="qr"></div><span>${csEsc(c.codigo)}</span></div>
+      </details>
+    </div>`;
+    try { new QRCode(document.getElementById("qr"), { text: c.codigo, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.M }); } catch (_) {}
+  }
+
+  function semConexao(erro) {
+    app.innerHTML = `
+    <section class="listras topo" style="padding-bottom:40px"><img src="logo.png" alt="Schmitt Buffet e Eventos"><h1>Sem conexão</h1><p>${csEsc(csMsgErro(erro))}</p></section>
+    <div class="miolo"><button class="btn principal" onclick="location.reload()">Tentar de novo</button></div>`;
+  }
+
+  async function iniciar() {
+    const token = csStore.get("cs_token");
+    if (!token) return location.hash === "#entrar" ? telaEntrar() : telaCadastro();
+    const r = await csApi("/cartao", { token });
+    if (r.cartao) {
+      if (tagVolta) { location.href = "toque.html?c=" + encodeURIComponent(tagVolta); return; }
+      return telaCartao(r.cartao);
+    }
+    if (r.erro === "sem_cartao") { csStore.del("cs_token"); return telaCadastro(); }
+    semConexao(r.erro);
+  }
+  iniciar();
+})();
+</script>
+</body>
+</html>
