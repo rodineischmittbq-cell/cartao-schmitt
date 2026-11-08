@@ -42,10 +42,11 @@ export async function appleToken(sb: SupabaseClient, codigo: string) {
 }
 
 // Imagens publicadas no site (cache na memória da função)
+const VERSAO_IMG = 2; // aumente quando trocar as imagens do cartão
 const imgs = new Map<string, Uint8Array>();
 async function img(nome: string) {
   if (imgs.has(nome)) return imgs.get(nome)!;
-  const r = await fetch(`${SITE}/wallet/apple/${nome}`);
+  const r = await fetch(`${SITE}/wallet/apple/${nome}?v=${VERSAO_IMG}`);
   if (!r.ok) throw new Error("img " + nome + " " + r.status);
   const b = new Uint8Array(await r.arrayBuffer());
   imgs.set(nome, b);
@@ -75,7 +76,6 @@ function passJson(e: any, token: string, aviso?: string) {
     webServiceURL: APPLE_WS,
     organizationName: "Schmitt Buffet e Eventos",
     description: "Cartão Schmitt",
-    logoText: "Cartão Schmitt",
     backgroundColor: "rgb(10,95,134)",
     foregroundColor: "rgb(255,255,255)",
     labelColor: "rgb(198,226,240)",

@@ -273,6 +273,17 @@ async function rotaApple(req: Request, rota: string): Promise<Response> {
     const e = await rpc<any>("estado_cliente", { p_cliente: c.id });
     return new Response(await applePass(sb, e), { headers: { ...PKPASS, "Content-Disposition": `attachment; filename="CartaoSchmitt.pkpass"` } });
   }
+  // GET /apple/atualizar-todos?k=chave  → manda todos os iPhones buscarem a versão nova do cartão
+  if (p[1] === "atualizar-todos" && req.method === "GET") {
+    if (new URL(req.url).searchParams.get("k") !== (await appleToken(sb, "atualizar-todos"))) return new Response(null, { status: 401 });
+    const { data } = await sb.from("apple_registros").select("cliente_id");
+    const ids = [...new Set((data ?? []).map((r: any) => r.cliente_id))];
+    for (const id of ids) {
+      await sb.from("clientes").update({ atualizado_em: new Date().toISOString() }).eq("id", id);
+      await appleAvisarMudanca(sb, id);
+    }
+    return json({ ok: true, cartoes: ids.length });
+  }
   if (p[1] !== "v1") return new Response(null, { status: 404 });
   // POST /apple/v1/log
   if (p[2] === "log") { try { console.log("apple_log", JSON.stringify(await req.json())); } catch { /* */ } return new Response(null, { status: 200 }); }
