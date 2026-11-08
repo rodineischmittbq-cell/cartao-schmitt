@@ -311,8 +311,6 @@ async function rotaApple(req: Request, rota: string): Promise<Response> {
     const serial = p[4];
     if (!(await autorizado(req, serial))) return new Response(null, { status: 401 });
     const c = await clientePorCodigo(serial); if (!c) return new Response(null, { status: 401 });
-    const ims = req.headers.get("if-modified-since");
-    if (ims && Date.parse(ims) >= Math.floor(Date.parse(c.atualizado_em) / 1000) * 1000) return new Response(null, { status: 304 });
     const e = await rpc<any>("estado_cliente", { p_cliente: c.id });
     return new Response(await applePass(sb, e), { headers: { ...PKPASS, "Last-Modified": new Date(c.atualizado_em).toUTCString() } });
   }
