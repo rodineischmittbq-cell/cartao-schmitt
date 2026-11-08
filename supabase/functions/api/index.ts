@@ -2,6 +2,7 @@
 // Autenticação própria: token do celular do cliente, sessão do caixa por PIN e sessão do painel por senha.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { googleAtivo, googleAtualizar, googleLinkSalvar } from "./google.ts";
+import { APPLE_TIPO, APPLE_WS, appleAtivo, appleAvisarMudanca, applePass, appleToken } from "./apple.ts";
 
 const sb = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -11,7 +12,7 @@ const sb = createClient(
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "content-type",
 };
 const json = (body: unknown, status = 200) =>
@@ -52,10 +53,11 @@ async function logarCliente(cid: string) {
 // Atualiza o cartão na carteira do celular (sem atrasar a resposta)
 const MUDOU = ["carimbado", "cartela_completa", "premio_entregue", "aniversario_liberado"];
 function sincronizar(cid: string | null | undefined, status?: string) {
-  if (!cid || (status && !MUDOU.includes(status)) || !googleAtivo()) return;
+  if (!cid || (status && !MUDOU.includes(status))) return;
   const tarefa = (async () => {
-    const { data } = await sb.from("clientes").select("google_em").eq("id", cid).single();
-    if (!data?.google_em) return;
+    const { data } = await sb.from("clientes").update({ atualizado_em: new Date().toISOString() }).eq("id", cid).select("google_em,apple_em").single();
+    if (data?.apple_em) await appleAvisarMudanca(sb, cid);
+    if (!data?.google_em || !googleAtivo()) return;
     const e = await rpc<any>("estado_cliente", { p_cliente: cid });
     const aviso = status === "cartela_completa"
       ? `Parabéns, ${String(e.nome).split(" ")[0]}! Seu próximo almoço é por nossa conta. Use de segunda a quinta.`
@@ -75,9 +77,12 @@ const erroBanco = (e: unknown) => {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+  const rota = new URL(req.url).pathname.replace(/^.*\/api/, "") || "/";
+  if (rota.startsWith("/apple/")) {
+    try { return await rotaApple(req, rota); } catch (e) { console.error("apple", rota, e); return new Response(null, { status: 500 }); }
+  }
   if (req.method !== "POST") return erro("metodo_invalido", 405);
 
-  const rota = new URL(req.url).pathname.replace(/^.*\/api/, "") || "/";
   let b: any = {};
   try { b = await req.json(); } catch { return erro("json_invalido"); }
 
@@ -103,7 +108,7 @@ Deno.serve(async (req) => {
       case "/cartao": {
         const cid = await rpc<string | null>("cliente_por_token", { p_token: String(b.token ?? "") });
         if (!cid) return erro("sem_cartao", 401);
-        return json({ cartao: semId(await rpc("estado_cliente", { p_cliente: cid })), wallet: { google: googleAtivo(), apple: false } });
+        return json({ cartao: semId(await rpc("estado_cliente", { p_cliente: cid })), wallet: { google: googleAtivo(), apple: await appleAtivo(sb) } });
       }
       case "/wallet/google": {
         const cid = await rpc<string | null>("cliente_por_token", { p_token: String(b.token ?? "") });
@@ -113,6 +118,14 @@ Deno.serve(async (req) => {
         const url = await googleLinkSalvar(e);
         await rpc("marcar_google", { p_cliente: cid });
         return json({ url });
+      }
+      case "/wallet/apple": {
+        const cid = await rpc<string | null>("cliente_por_token", { p_token: String(b.token ?? "") });
+        if (!cid) return erro("sem_cartao", 401);
+        if (!(await appleAtivo(sb))) return erro("wallet_indisponivel", 503);
+        const e = await rpc<any>("estado_cliente", { p_cliente: cid });
+        await sb.from("clientes").update({ apple_em: new Date().toISOString() }).eq("id", cid).is("apple_em", null);
+        return json({ url: `${APPLE_WS}/pass/${encodeURIComponent(e.codigo)}?t=${await appleToken(sb, e.codigo)}` });
       }
       case "/toque": {
         const cid = await rpc<string | null>("cliente_por_token", { p_token: String(b.token ?? "") });
@@ -239,3 +252,69 @@ Deno.serve(async (req) => {
     return erro("erro_interno", 500);
   }
 });
+
+// ---------- Carteira da Apple: download do cartão e serviço web que o iPhone chama ----------
+const PKPASS = { "Content-Type": "application/vnd.apple.pkpass", "Cache-Control": "no-store" };
+async function clientePorCodigo(codigo: string) {
+  const { data } = await sb.from("clientes").select("id,codigo,atualizado_em,excluido_em").eq("codigo", codigo).maybeSingle();
+  return data && !data.excluido_em ? data : null;
+}
+async function autorizado(req: Request, codigo: string) {
+  const h = req.headers.get("authorization") ?? "";
+  return h === `ApplePass ${await appleToken(sb, codigo)}`;
+}
+async function rotaApple(req: Request, rota: string): Promise<Response> {
+  const p = rota.split("/").filter(Boolean).map(decodeURIComponent); // ["apple", ...]
+  // GET /apple/pass/{codigo}?t=token  → baixar o cartão pelo site
+  if (p[1] === "pass" && req.method === "GET") {
+    const codigo = p[2] ?? "", t = new URL(req.url).searchParams.get("t") ?? "";
+    const c = await clientePorCodigo(codigo);
+    if (!c || t !== (await appleToken(sb, codigo))) return new Response("Cartão não encontrado", { status: 404 });
+    const e = await rpc<any>("estado_cliente", { p_cliente: c.id });
+    return new Response(await applePass(sb, e), { headers: { ...PKPASS, "Content-Disposition": `attachment; filename="CartaoSchmitt.pkpass"` } });
+  }
+  if (p[1] !== "v1") return new Response(null, { status: 404 });
+  // POST /apple/v1/log
+  if (p[2] === "log") { try { console.log("apple_log", JSON.stringify(await req.json())); } catch { /* */ } return new Response(null, { status: 200 }); }
+  // /apple/v1/devices/{dev}/registrations/{tipo}[/{serial}]
+  if (p[2] === "devices" && p[4] === "registrations" && p[5] === APPLE_TIPO) {
+    const dev = p[3], serial = p[6];
+    if (serial) {
+      if (!(await autorizado(req, serial))) return new Response(null, { status: 401 });
+      const c = await clientePorCodigo(serial); if (!c) return new Response(null, { status: 401 });
+      if (req.method === "POST") {
+        const b = await req.json().catch(() => ({}));
+        if (!b.pushToken) return new Response(null, { status: 400 });
+        const { data: ja } = await sb.from("apple_registros").select("device_id").eq("device_id", dev).eq("cliente_id", c.id).maybeSingle();
+        await sb.from("apple_registros").upsert({ device_id: dev, push_token: b.pushToken, cliente_id: c.id });
+        await sb.from("clientes").update({ apple_em: new Date().toISOString() }).eq("id", c.id).is("apple_em", null);
+        return new Response(null, { status: ja ? 200 : 201 });
+      }
+      if (req.method === "DELETE") {
+        await sb.from("apple_registros").delete().eq("device_id", dev).eq("cliente_id", c.id);
+        return new Response(null, { status: 200 });
+      }
+      return new Response(null, { status: 405 });
+    }
+    if (req.method === "GET") {
+      const desde = Number(new URL(req.url).searchParams.get("passesUpdatedSince") || 0);
+      const { data } = await sb.from("apple_registros").select("clientes(codigo,atualizado_em)").eq("device_id", dev);
+      const lista = (data ?? []).map((r: any) => r.clientes).filter((c: any) => c && Date.parse(c.atualizado_em) / 1000 > desde);
+      if (!lista.length) return new Response(null, { status: 204 });
+      const ultimo = Math.max(...lista.map((c: any) => Math.ceil(Date.parse(c.atualizado_em) / 1000)));
+      return new Response(JSON.stringify({ serialNumbers: lista.map((c: any) => c.codigo), lastUpdated: String(ultimo) }), { headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(null, { status: 405 });
+  }
+  // GET /apple/v1/passes/{tipo}/{serial}  → versão mais nova do cartão
+  if (p[2] === "passes" && p[3] === APPLE_TIPO && p[4] && req.method === "GET") {
+    const serial = p[4];
+    if (!(await autorizado(req, serial))) return new Response(null, { status: 401 });
+    const c = await clientePorCodigo(serial); if (!c) return new Response(null, { status: 401 });
+    const ims = req.headers.get("if-modified-since");
+    if (ims && Date.parse(ims) >= Math.floor(Date.parse(c.atualizado_em) / 1000) * 1000) return new Response(null, { status: 304 });
+    const e = await rpc<any>("estado_cliente", { p_cliente: c.id });
+    return new Response(await applePass(sb, e), { headers: { ...PKPASS, "Last-Modified": new Date(c.atualizado_em).toUTCString() } });
+  }
+  return new Response(null, { status: 404 });
+}
